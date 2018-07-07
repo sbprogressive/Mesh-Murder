@@ -12,7 +12,7 @@ public class ShliceMaster : MonoBehaviour
     private float width = 5, height = 5, depth = 5;
     private Mesh mesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent;
+    private GameObject meshObj, sliceObj, meshParent, side1, side2;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
@@ -28,6 +28,8 @@ public class ShliceMaster : MonoBehaviour
         meshParent = GameObject.Find("Meshes");
         meshObj = GameObject.Find("Mesh");
         sliceObj = GameObject.Find("Slicer");
+        side1 = GameObject.Find("Side1");
+        side2 = GameObject.Find("Side2");
 
         CreateBaseBox();
 
@@ -107,7 +109,7 @@ public class ShliceMaster : MonoBehaviour
     void Update()
     {
         #region DebugLines
-        // DRAW DEBUG LINES FROM MESH 
+        //// DRAW DEBUG LINES FROM MESH 
         //foreach (Mesh mesh in meshes)
         //{
         //    for (int i = 0; i < mesh.triangles.Count(); i += 3)
@@ -124,7 +126,7 @@ public class ShliceMaster : MonoBehaviour
         //    }
         //}
 
-        // DRAW DEBUG LINES FROM NEWTRIANGLES 
+        //// DRAW DEBUG LINES FROM NEWTRIANGLES 
         //foreach (Triangle triangle in newTriangles)
         //{
         //    float r = UnityEngine.Random.Range(0f, 1f);
@@ -138,16 +140,16 @@ public class ShliceMaster : MonoBehaviour
         //}
 
 
-        // DRAW INTERSECTIONS 
-        //foreach (Vert vert in allIntersections)
-        //{
-        //    float distbox = .2f;
+        //// DRAW INTERSECTIONS 
+        foreach (Vert vert in allIntersections)
+        {
+            float distbox = .2f;
 
-        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
-        //}
+            Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
+        }
         #endregion
 
         if (Input.GetKeyDown(KeyCode.Space))
@@ -162,6 +164,7 @@ public class ShliceMaster : MonoBehaviour
         newVerts.Clear();
         triangles_left.Clear();
         triangles_right.Clear();
+        allIntersections.Clear();
 
         //old verts will always be new verts
         for (int i = 0; i < mesh.vertices.Count(); i++)
@@ -284,28 +287,35 @@ public class ShliceMaster : MonoBehaviour
         //// this code currently breaks when attempting multiple slices in one play session, so it is commented out for now
         ///////////////////////////////////////////////////////////////////////////////
 
-        //Vector3 center = Vector3.zero;
-        //foreach (Vert intersection in allIntersections)
-        //    center += intersection.pos;
-        //center /= (float)allIntersections.Count;
-        //newVerts.Add(new Vert() { index = newVerts.Count, pos = center });
-        //for (int i = 0; i < allIntersections.Count; i += 2)
-        //{
-        //    for (int j = -1; j < 2; j += 2)
-        //    {
-        //        Triangle tri = new Triangle()
-        //        {
-        //            verts = new List<Vert>() { allIntersections[i],
-        //                                  new Vert() {index = newVerts.Count-1, pos = center },
-        //                                  allIntersections[i+1] },
-        //            isNewSliceGeometry = true
-        //        };
-        //        tri.MatchDirection(j * tri.GetNormal());
-        //        triangles_left.Add(tri);
-        //        triangles_right.Add(tri);
-        //    }
-        //}
+        Vector3 center = Vector3.zero;
+        foreach (Vert intersection in allIntersections)
+            center += intersection.pos;
+        center /= (float)allIntersections.Count;
+        newVerts.Add(new Vert() { index = newVerts.Count, pos = center });
 
+        for (int i = 0; i < allIntersections.Count; i += 2)
+        {
+
+            Triangle tri = new Triangle()
+            {
+                verts = new List<Vert>() { allIntersections[i],
+                                          new Vert() {index = newVerts.Count-1, pos = center },
+                                          allIntersections[i+1] },
+                isNewSliceGeometry = true
+            };
+            tri.MatchDirection(-1f * (side1.transform.position - sliceObj.transform.position).normalized);
+            triangles_left.Add(tri);
+
+            tri = new Triangle()
+            {
+                verts = new List<Vert>() { allIntersections[i],
+                                          new Vert() {index = newVerts.Count-1, pos = center },
+                                          allIntersections[i+1] },
+                isNewSliceGeometry = true
+            };
+            tri.MatchDirection((side1.transform.position - sliceObj.transform.position).normalized);
+            triangles_right.Add(tri);
+        }
 
         //now to deal with the actual gameobjects/meshes
         Material mat = meshObj.GetComponent<MeshRenderer>().material;
@@ -348,7 +358,7 @@ public class ShliceMaster : MonoBehaviour
 
         indices.Clear();
 
-        //RIGHT SIDE
+        ////RIGHT SIDE
         //foreach (Triangle triangle in triangles_right)
         //    for (int i = 0; i < triangle.verts.Count; i++)
         //        indices.Add(triangle.verts[i].index);
@@ -368,7 +378,7 @@ public class ShliceMaster : MonoBehaviour
         //mf2.mesh = meshR;
         //MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
         //mr2.material = mat;
-        //meshes.Add(meshR);
+
 
         meshes.Clear();
         meshes.Add(meshL);
@@ -407,7 +417,7 @@ public class Triangle
     public bool isNewSliceGeometry = false;
 
     public int index1 { get { return verts[0].index; } }
-      public int index2 { get { return verts[1].index; } }
+    public int index2 { get { return verts[1].index; } }
     public int index3 { get { return verts[2].index; } }
     public Vector3 pos1 { get { return verts[0].pos; } }
     public Vector3 pos2 { get { return verts[1].pos; } }
@@ -438,7 +448,7 @@ public class Triangle
 
         color = new Color(r, g, b, 1f);
     }
-             public Vector3 GetCenter()
+    public Vector3 GetCenter()
     {
         return (pos1 + pos2 + pos3) / 3f;
     }
