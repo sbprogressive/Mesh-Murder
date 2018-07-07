@@ -20,7 +20,6 @@ public class ShliceMaster : MonoBehaviour
                           newTriangles = new List<Triangle>();
     private List<Vert> newVerts = new List<Vert>(),
                        allIntersections = new List<Vert>();
-
     #endregion
 
     void Start()
@@ -109,7 +108,7 @@ public class ShliceMaster : MonoBehaviour
     void Update()
     {
         #region DebugLines
-        //// DRAW DEBUG LINES FROM MESH 
+        ////// DRAW DEBUG LINES FROM MESH 
         //foreach (Mesh mesh in meshes)
         //{
         //    for (int i = 0; i < mesh.triangles.Count(); i += 3)
@@ -126,7 +125,7 @@ public class ShliceMaster : MonoBehaviour
         //    }
         //}
 
-        //// DRAW DEBUG LINES FROM NEWTRIANGLES 
+        ////// DRAW DEBUG LINES FROM NEWTRIANGLES 
         //foreach (Triangle triangle in newTriangles)
         //{
         //    float r = UnityEngine.Random.Range(0f, 1f);
@@ -140,17 +139,39 @@ public class ShliceMaster : MonoBehaviour
         //}
 
 
-        //// DRAW INTERSECTIONS 
-        foreach (Vert vert in allIntersections)
-        {
-            float distbox = .2f;
+        ////// DRAW INTERSECTIONS 
+        //foreach (Vert vert in allIntersections)
+        //{
+        //    float distbox = .2f;
 
-            Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
-        }
+        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
+        //}
         #endregion
+
+        if (Input.GetKey(KeyCode.A))
+            sliceObj.transform.Translate(-.1f, 0f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.D))
+            sliceObj.transform.Translate(.1f, 0f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.W))
+            sliceObj.transform.Translate(0f, 0f, .1f, Space.World);
+        if (Input.GetKey(KeyCode.S))
+            sliceObj.transform.Translate(0f, 0f, -.1f, Space.World);
+        if (Input.GetKey(KeyCode.E))
+            sliceObj.transform.Translate(0f, .1f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.Q))
+            sliceObj.transform.Translate(0f, -.1f, 0f, Space.World);
+
+        if (Input.GetKey(KeyCode.UpArrow))
+            sliceObj.transform.Rotate(-1f, 0f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.DownArrow))
+            sliceObj.transform.Rotate(1f, 0f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.LeftArrow))
+            sliceObj.transform.Rotate(0f, 1f, 0f, Space.World);
+        if (Input.GetKey(KeyCode.RightArrow))
+            sliceObj.transform.Rotate(0f, -1f, 0f, Space.World);
 
         if (Input.GetKeyDown(KeyCode.Space))
             Shlice();
@@ -158,7 +179,6 @@ public class ShliceMaster : MonoBehaviour
 
     void Shlice()
     {
-
         oldTriangles.Clear();
         newTriangles.Clear();
         newVerts.Clear();
@@ -198,44 +218,54 @@ public class ShliceMaster : MonoBehaviour
             //check for intersections from point1 -> point2
             if (Physics.Raycast(new Ray(oldTri.pos1, dir), out _hit, Vector3.Distance(oldTri.pos1, oldTri.pos2)))
             {
-                hitSide1 = true;
+                if (_hit.transform.tag == "Slicer")
+                {
+                    hitSide1 = true;
 
-                Vector3 intersection = oldTri.pos1 + _hit.distance * dir.normalized;
-                if (!newVerts.Exists(v => v.pos == intersection))
-                    newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
+                    Vector3 intersection = oldTri.pos1 + _hit.distance * dir.normalized;
+                    if (!newVerts.Exists(v => v.pos == intersection))
+                        newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                }
             }
 
             //check for intersections from point2 -> point3
             dir = oldTri.pos3 - oldTri.pos2;
             if (Physics.Raycast(new Ray(oldTri.pos2, dir), out _hit, Vector3.Distance(oldTri.pos3, oldTri.pos2))) // check for intersections in the first edge
             {
-                hitSide2 = true;
+                if (_hit.transform.tag == "Slicer")
+                {
+                    hitSide2 = true;
 
-                Vector3 intersection = oldTri.pos2 + _hit.distance * dir.normalized;
-                if (!newVerts.Exists(v => v.pos == intersection))
-                    newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
+                    Vector3 intersection = oldTri.pos2 + _hit.distance * dir.normalized;
+                    if (!newVerts.Exists(v => v.pos == intersection))
+                        newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                }
             }
 
             //check for intersections from point3 -> point1
             dir = oldTri.pos1 - oldTri.pos3;
             if (Physics.Raycast(new Ray(oldTri.pos3, dir), out _hit, Vector3.Distance(oldTri.pos3, oldTri.pos1))) // check for intersections in the first edge
             {
-                hitSide3 = true;
+                if (_hit.transform.tag == "Slicer")
+                {
+                    hitSide3 = true;
 
-                Vector3 intersection = oldTri.pos3 + _hit.distance * dir.normalized;
-                if (!newVerts.Exists(v => v.pos == intersection))
-                    newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
+                    Vector3 intersection = oldTri.pos3 + _hit.distance * dir.normalized;
+                    if (!newVerts.Exists(v => v.pos == intersection))
+                        newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                }
             }
 
             //found some intersections in this triangle
             if (myIntersections.Count > 0)
             {
+                print("intersected something");
                 allIntersections.AddRange(myIntersections);
                 Vert lonelyVert = new Vert(), secondVert = new Vert(), thirdVert = new Vert();
 
@@ -286,106 +316,108 @@ public class ShliceMaster : MonoBehaviour
         //// we do this in a "spoke wheel" fashion based on the center of all intersections
         //// this code currently breaks when attempting multiple slices in one play session, so it is commented out for now
         ///////////////////////////////////////////////////////////////////////////////
-
-        Vector3 center = Vector3.zero;
-        foreach (Vert intersection in allIntersections)
-            center += intersection.pos;
-        center /= (float)allIntersections.Count;
-        newVerts.Add(new Vert() { index = newVerts.Count, pos = center });
-
-        for (int i = 0; i < allIntersections.Count; i += 2)
+        if (allIntersections.Count > 0)
         {
+            Vector3 center = Vector3.zero;
+            foreach (Vert intersection in allIntersections)
+                center += intersection.pos;
+            center /= (float)allIntersections.Count;
+            newVerts.Add(new Vert() { index = newVerts.Count, pos = center });
 
-            Triangle tri = new Triangle()
+            for (int i = 0; i < allIntersections.Count; i += 2)
             {
-                verts = new List<Vert>() { allIntersections[i],
+
+                Triangle tri = new Triangle()
+                {
+                    verts = new List<Vert>() { allIntersections[i],
                                           new Vert() {index = newVerts.Count-1, pos = center },
                                           allIntersections[i+1] },
-                isNewSliceGeometry = true
-            };
-            tri.MatchDirection(-1f * (side1.transform.position - sliceObj.transform.position).normalized);
-            triangles_left.Add(tri);
+                    isNewSliceGeometry = true
+                };
+                tri.MatchDirection(-1f * (side1.transform.position - sliceObj.transform.position).normalized);
+                triangles_left.Add(tri);
 
-            tri = new Triangle()
-            {
-                verts = new List<Vert>() { allIntersections[i],
+                tri = new Triangle()
+                {
+                    verts = new List<Vert>() { allIntersections[i],
                                           new Vert() {index = newVerts.Count-1, pos = center },
                                           allIntersections[i+1] },
-                isNewSliceGeometry = true
-            };
-            tri.MatchDirection((side1.transform.position - sliceObj.transform.position).normalized);
-            triangles_right.Add(tri);
+                    isNewSliceGeometry = true
+                };
+                tri.MatchDirection((side1.transform.position - sliceObj.transform.position).normalized);
+                triangles_right.Add(tri);
+            }
+
+            //now to deal with the actual gameobjects/meshes
+            Material mat = meshObj.GetComponent<MeshRenderer>().material;
+            List<int> indices = new List<int>();
+            List<Vector3> newVertPositions = new List<Vector3>();
+            Mesh meshL = new Mesh(),
+                 meshR = new Mesh();
+
+            for (int i = 0; i < newVerts.Count; i++)
+                newVertPositions.Add(newVerts[i].pos);
+
+            foreach (Triangle triangle in newTriangles)
+            {
+                if (getSide(triangle.GetCenter()) == 0)
+                    triangles_left.Add(triangle);
+                else
+                    triangles_right.Add(triangle);
+            }
+
+            //LEFT SIDE
+            foreach (Triangle triangle in triangles_left)
+                for (int i = 0; i < triangle.verts.Count; i++)
+                    indices.Add(triangle.verts[i].index);
+            meshL.vertices = newVertPositions.ToArray();
+            meshL.triangles = indices.ToArray();
+            MeshUtility.Optimize(meshL);
+            meshL.RecalculateNormals();
+            meshL.RecalculateBounds();
+            GameObject go1 = new GameObject();
+            go1.name = "Slice 1";
+            go1.tag = "Mesh";
+            go1.AddComponent<Rigidbody>();
+            go1.GetComponent<Rigidbody>().isKinematic = true;
+            go1.GetComponent<Rigidbody>().useGravity = false;
+            go1.transform.parent = meshParent.transform;
+            MeshFilter mf1 = go1.AddComponent<MeshFilter>();
+            mf1.mesh = meshL;
+            MeshRenderer mr1 = go1.AddComponent<MeshRenderer>();
+            mr1.material = mat;
+
+            indices.Clear();
+
+            ////RIGHT SIDE
+            //foreach (Triangle triangle in triangles_right)
+            //    for (int i = 0; i < triangle.verts.Count; i++)
+            //        indices.Add(triangle.verts[i].index);
+            //meshR.vertices = newVertPositions.ToArray();
+            //meshR.triangles = indices.ToArray();
+            //MeshUtility.Optimize(meshR);
+            //meshR.RecalculateNormals();
+            //meshR.RecalculateBounds();
+            //GameObject go2 = new GameObject();
+            //go2.name = "Slice 2";
+            //go2.tag = "Mesh";
+            //go2.AddComponent<Rigidbody>();
+            //go2.GetComponent<Rigidbody>().isKinematic = true;
+            //go2.GetComponent<Rigidbody>().useGravity = false;
+            //go2.transform.parent = meshParent.transform;
+            //MeshFilter mf2 = go2.AddComponent<MeshFilter>();
+            //mf2.mesh = meshR;
+            //MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
+            //mr2.material = mat;
+
+
+            meshes.Clear();
+            meshes.Add(meshL);
+            mesh = meshL;
+
+            DestroyImmediate(meshObj);
+            meshObj = GameObject.FindGameObjectWithTag("Mesh");
         }
-
-        //now to deal with the actual gameobjects/meshes
-        Material mat = meshObj.GetComponent<MeshRenderer>().material;
-        List<int> indices = new List<int>();
-        List<Vector3> newVertPositions = new List<Vector3>();
-        Mesh meshL = new Mesh(),
-             meshR = new Mesh();
-
-        for (int i = 0; i < newVerts.Count; i++)
-            newVertPositions.Add(newVerts[i].pos);
-
-        foreach (Triangle triangle in newTriangles)
-        {
-            if (getSide(triangle.GetCenter()) == 0)
-                triangles_left.Add(triangle);
-            else
-                triangles_right.Add(triangle);
-        }
-
-        //LEFT SIDE
-        foreach (Triangle triangle in triangles_left)
-            for (int i = 0; i < triangle.verts.Count; i++)
-                indices.Add(triangle.verts[i].index);
-        meshL.vertices = newVertPositions.ToArray();
-        meshL.triangles = indices.ToArray();
-        MeshUtility.Optimize(meshL);
-        meshL.RecalculateNormals();
-        meshL.RecalculateBounds();
-        GameObject go1 = new GameObject();
-        go1.name = "Slice 1";
-        go1.tag = "Mesh";
-        go1.AddComponent<Rigidbody>();
-        go1.GetComponent<Rigidbody>().isKinematic = true;
-        go1.GetComponent<Rigidbody>().useGravity = false;
-        go1.transform.parent = meshParent.transform;
-        MeshFilter mf1 = go1.AddComponent<MeshFilter>();
-        mf1.mesh = meshL;
-        MeshRenderer mr1 = go1.AddComponent<MeshRenderer>();
-        mr1.material = mat;
-
-        indices.Clear();
-
-        ////RIGHT SIDE
-        //foreach (Triangle triangle in triangles_right)
-        //    for (int i = 0; i < triangle.verts.Count; i++)
-        //        indices.Add(triangle.verts[i].index);
-        //meshR.vertices = newVertPositions.ToArray();
-        //meshR.triangles = indices.ToArray();
-        //MeshUtility.Optimize(meshR);
-        //meshR.RecalculateNormals();
-        //meshR.RecalculateBounds();
-        //GameObject go2 = new GameObject();
-        //go2.name = "Slice 2";
-        //go2.tag = "Mesh";
-        //go2.AddComponent<Rigidbody>();
-        //go2.GetComponent<Rigidbody>().isKinematic = true;
-        //go2.GetComponent<Rigidbody>().useGravity = false;
-        //go2.transform.parent = meshParent.transform;
-        //MeshFilter mf2 = go2.AddComponent<MeshFilter>();
-        //mf2.mesh = meshR;
-        //MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
-        //mr2.material = mat;
-
-
-        meshes.Clear();
-        meshes.Add(meshL);
-        mesh = meshL;
-
-        DestroyImmediate(meshObj);
-        meshObj = GameObject.FindGameObjectWithTag("Mesh");
     }
 
     #region Helpers
