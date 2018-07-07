@@ -265,7 +265,6 @@ public class ShliceMaster : MonoBehaviour
             //found some intersections in this triangle
             if (myIntersections.Count > 0)
             {
-                print("intersected something");
                 allIntersections.AddRange(myIntersections);
                 Vert lonelyVert = new Vert(), secondVert = new Vert(), thirdVert = new Vert();
 
