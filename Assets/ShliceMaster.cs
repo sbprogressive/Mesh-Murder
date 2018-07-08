@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class ShliceMaster : MonoBehaviour
 {
@@ -12,10 +13,10 @@ public class ShliceMaster : MonoBehaviour
     [SerializeField]
     private float sliceExpandSpeed, expandSuccessThreshold;
 
-    private float width = 15, height = 5, depth = 5;
+    private float width = 5, height = 2.5f, depth = 2.5f;
     private Mesh mesh, expandingMesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice;
+    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice, standBySlice2;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
@@ -147,7 +148,7 @@ public class ShliceMaster : MonoBehaviour
             GameObject newcollider = GameObject.CreatePrimitive(PrimitiveType.Cube);
             newcollider.transform.position = _baseTriangles[i].GetCenter();
             newcollider.transform.rotation = Quaternion.LookRotation(_baseTriangles[i].GetNormal());
-            newcollider.transform.localScale = new Vector3(10f, 10f, .1f);
+            newcollider.transform.localScale = new Vector3(5f, 5f, .1f);
             newcollider.transform.parent = colliderParent.transform;
             newcollider.name = "Collider " + i;
             newcollider.tag = "Collider";
@@ -164,21 +165,21 @@ public class ShliceMaster : MonoBehaviour
     {
         #region DebugLines
         //// DRAW DEBUG LINES FROM MESH 
-        foreach (Mesh mesh in meshes)
-        {
-            for (int i = 0; i < mesh.triangles.Count(); i += 3)
-            {
-                Vector3 center = Vector3.zero;
-                foreach (Vert intersection in allIntersections)
-                    center += intersection.pos;
-                center /= (float)allIntersections.Count;
+        //foreach (Mesh mesh in meshes)
+        //{
+        //    for (int i = 0; i < mesh.triangles.Count(); i += 3)
+        //    {
+        //        Vector3 center = Vector3.zero;
+        //        foreach (Vert intersection in allIntersections)
+        //            center += intersection.pos;
+        //        center /= (float)allIntersections.Count;
 
-                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), Color.white);
-                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), Color.white);
-                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), Color.white);
+        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), Color.white);
+        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), Color.white);
+        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), Color.white);
 
-            }
-        }
+        //    }
+        //}
 
         ////// DRAW DEBUG LINES FROM MESH 
 
@@ -210,45 +211,73 @@ public class ShliceMaster : MonoBehaviour
         //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.red);
         //}
 
+        ////// DRAW DEBUG LINES FROM NEWTRIANGLES 
+        //foreach (Triangle triangle in triangles_left)
+        //{
 
-        //// DRAW INTERSECTIONS 
-        foreach (Vert vert in allIntersections)
-        {
-            float distbox = .2f;
+        //    Color newcolor = Color.red;
+        //    Debug.DrawLine(newVerts[triangle.index1].pos, newVerts[triangle.index2].pos, Color.blue);
+        //    Debug.DrawLine(newVerts[triangle.index2].pos, newVerts[triangle.index3].pos, Color.blue);
+        //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.blue);
+        //}
+        //foreach (Triangle triangle in triangles_right)
+        //{
 
-            Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
-            Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
-        }
+        //    Color newcolor = Color.red;
+        //    Debug.DrawLine(newVerts[triangle.index1].pos, newVerts[triangle.index2].pos, Color.red);
+        //    Debug.DrawLine(newVerts[triangle.index2].pos, newVerts[triangle.index3].pos, Color.red);
+        //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.red);
+        //}
+
+
+        //foreach (Triangle triangle in newTriangles)
+        //{
+        //    float distbox = .2f;
+        //    Debug.DrawLine(triangle.GetCenter() + new Vector3(-distbox, -distbox, 0f), triangle.GetCenter() + new Vector3(-distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(triangle.GetCenter() + new Vector3(-distbox, distbox, 0f), triangle.GetCenter() + new Vector3(distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(triangle.GetCenter() + new Vector3(distbox, distbox, 0f), triangle.GetCenter() + new Vector3(distbox, -distbox, 0f), Color.red);
+        //    Debug.DrawLine(triangle.GetCenter() + new Vector3(distbox, -distbox, 0f), triangle.GetCenter() + new Vector3(-distbox, -distbox, 0f), Color.red);
+        //}
+        ////// DRAW INTERSECTIONS 
+        //foreach (Vert vert in allIntersections)
+        //{
+        //    float distbox = .2f;
+
+        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
+        //}
         #endregion
 
         if (sliceObj.activeSelf)
         {
             if (Input.GetKey(KeyCode.A))
-                sliceObj.transform.Translate(-.1f, 0f, 0f, Space.World);
+                sliceObj.transform.Translate(-.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
             if (Input.GetKey(KeyCode.D))
-                sliceObj.transform.Translate(.1f, 0f, 0f, Space.World);
+                sliceObj.transform.Translate(.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
             if (Input.GetKey(KeyCode.W))
-                sliceObj.transform.Translate(0f, 0f, .1f, Space.World);
+                sliceObj.transform.Translate(0f, 0f, .1f * Time.deltaTime * 25f, Space.World);
             if (Input.GetKey(KeyCode.S))
-                sliceObj.transform.Translate(0f, 0f, -.1f, Space.World);
+                sliceObj.transform.Translate(0f, 0f, -.1f * Time.deltaTime * 25f, Space.World);
             if (Input.GetKey(KeyCode.E))
-                sliceObj.transform.Translate(0f, .1f, 0f, Space.World);
+                sliceObj.transform.Translate(0f, .1f * Time.deltaTime * 25f, 0f, Space.World);
             if (Input.GetKey(KeyCode.Q))
-                sliceObj.transform.Translate(0f, -.1f, 0f, Space.World);
+                sliceObj.transform.Translate(0f, -.1f * Time.deltaTime * 25f, 0f, Space.World);
 
             if (Input.GetKey(KeyCode.UpArrow))
-                sliceObj.transform.Rotate(-1f, 0f, 0f, Space.World);
+                sliceObj.transform.Rotate(-1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
             if (Input.GetKey(KeyCode.DownArrow))
-                sliceObj.transform.Rotate(1f, 0f, 0f, Space.World);
+                sliceObj.transform.Rotate(1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
             if (Input.GetKey(KeyCode.LeftArrow))
-                sliceObj.transform.Rotate(0f, 1f, 0f, Space.World);
+                sliceObj.transform.Rotate(0f, 1f * Time.deltaTime * 200f, 0f, Space.World);
             if (Input.GetKey(KeyCode.RightArrow))
-                sliceObj.transform.Rotate(0f, -1f, 0f, Space.World);
+                sliceObj.transform.Rotate(0f, -1f * Time.deltaTime * 200f, 0f, Space.World);
 
             if (Input.GetKeyDown(KeyCode.Space))
                 Shlice();
+            if (Input.GetKeyDown(KeyCode.Escape))
+                SceneManager.LoadScene(0);
         }
     }
 
@@ -465,7 +494,6 @@ public class ShliceMaster : MonoBehaviour
             go1.GetComponent<Rigidbody>().isKinematic = true;
             go1.GetComponent<Rigidbody>().useGravity = false;
             go1.transform.parent = meshParent.transform;
-
             MeshFilter mf1 = go1.AddComponent<MeshFilter>();
             mf1.mesh = meshL;
             MeshRenderer mr1 = go1.AddComponent<MeshRenderer>();
@@ -475,26 +503,30 @@ public class ShliceMaster : MonoBehaviour
 
             indices.Clear();
 
-            ////RIGHT SIDE
-            //foreach (Triangle triangle in triangles_right)
-            //    for (int i = 0; i < triangle.verts.Count; i++)
-            //        indices.Add(triangle.verts[i].index);
-            //meshR.vertices = newVertPositions.ToArray();
-            //meshR.triangles = indices.ToArray();
-            //MeshUtility.Optimize(meshR);
-            //meshR.RecalculateNormals();
-            //meshR.RecalculateBounds();
-            //GameObject go2 = new GameObject();
-            //go2.name = "Slice 2";
-            //go2.tag = "Mesh";
-            //go2.AddComponent<Rigidbody>();
-            //go2.GetComponent<Rigidbody>().isKinematic = true;
-            //go2.GetComponent<Rigidbody>().useGravity = false;
-            //go2.transform.parent = meshParent.transform;
-            //MeshFilter mf2 = go2.AddComponent<MeshFilter>();
-            //mf2.mesh = meshR;
-            //MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
-            //mr2.material = mat;
+            //RIGHT SIDE
+            foreach (Triangle triangle in triangles_right)
+                for (int i = 0; i < triangle.verts.Count; i++)
+                    indices.Add(triangle.verts[i].index);
+            meshR.vertices = newVertPositions.ToArray();
+            meshR.triangles = indices.ToArray();
+            MeshUtility.Optimize(meshR);
+            meshR.RecalculateNormals();
+            meshR.RecalculateBounds();
+            GameObject go2 = new GameObject();
+            go2.name = "Slice 2";
+            go2.tag = "Mesh";
+            go2.AddComponent<Rigidbody>();
+            go2.GetComponent<Rigidbody>().isKinematic = true;
+            go2.GetComponent<Rigidbody>().useGravity = false;
+            go2.transform.parent = meshParent.transform;
+            MeshFilter mf2 = go2.AddComponent<MeshFilter>();
+            mf2.mesh = meshR;
+            MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
+            mr2.material = mat;
+            go2.SetActive(false);
+            standBySlice2 = go2;
+
+
             StopCoroutine("ShliceExpand");
             StartCoroutine("ShliceExpand");
             //SuccessfulSlice();
@@ -582,7 +614,6 @@ public class ShliceMaster : MonoBehaviour
 
             }
 
-
             _shliceVerts.Clear();
             _shliceTris.Clear();
             for (int k = 0; k < shliceVerts.Count; k++)
@@ -606,11 +637,30 @@ public class ShliceMaster : MonoBehaviour
 
     private void SuccessfulSlice()
     {
+
         expandingMesh.Clear();
+
         sliceObj.SetActive(true);
+
         DestroyImmediate(meshObj);
-        standbySlice.gameObject.tag = "Mesh";
-        standbySlice.SetActive(true);
+        List<Triangle> trianglesToUse = new List<Triangle>();
+
+        if (getSide(GameObject.Find("Ball").transform.position) == 0)
+        {
+            standbySlice.gameObject.tag = "Mesh";
+            standbySlice.SetActive(true);
+            GameObject.Destroy(standBySlice2);
+            trianglesToUse = triangles_left;
+        }
+        else
+        {
+            standBySlice2.gameObject.tag = "Mesh";
+            standBySlice2.SetActive(true);
+            GameObject.Destroy(standbySlice);
+            trianglesToUse = triangles_right;
+        }
+
+
         meshObj = GameObject.FindGameObjectWithTag("Mesh");
         meshes.Clear();
         meshes.Add(meshObj.GetComponent<MeshFilter>().mesh);
@@ -618,14 +668,15 @@ public class ShliceMaster : MonoBehaviour
 
         foreach (GameObject go in colliders)
             DestroyImmediate(go);
-
         colliders.Clear();
-        for (int i = 0; i < newTriangles.Count(); i++)
+
+
+        for (int i = 0; i < trianglesToUse.Count(); i++)
         {
             GameObject newcollider = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            newcollider.transform.position = newTriangles[i].GetCenter();
-            newcollider.transform.rotation = Quaternion.LookRotation(newTriangles[i].GetNormal());
-            newcollider.transform.localScale = new Vector3(10f, 10f, .1f);
+            newcollider.transform.position = trianglesToUse[i].GetCenter();
+            newcollider.transform.rotation = Quaternion.LookRotation(trianglesToUse[i].GetNormal());
+            newcollider.transform.localScale = new Vector3(5f, 5f, .1f);
             newcollider.transform.parent = colliderParent.transform;
             newcollider.name = "Collider " + i;
             newcollider.tag = "Collider";
@@ -643,18 +694,28 @@ public class ShliceMaster : MonoBehaviour
 
     private int getSide(Vector3 point) //returns which side of the slicer this point is on
     {
+        float side1dist = Vector3.Distance(point, GameObject.Find("Side1").transform.position);
+        float side2dist = Vector3.Distance(point, GameObject.Find("Side2").transform.position);
+
+        if (side1dist > side2dist)
+            return 1;
+        else
+            return 0;
+
         RaycastHit[] hits;
         hits = Physics.BoxCastAll(point, new Vector3(.1f, .1f, .1f), transform.forward);
+        int ret = 0;
 
         foreach (RaycastHit hit in hits)
         {
+
             if (hit.transform.tag == "Side")
             {
                 return Convert.ToInt16(hit.transform.name.Replace("Side", "")) - 1;
             }
         }
 
-        return 0;
+        return ret;
     }
 
     #endregion
