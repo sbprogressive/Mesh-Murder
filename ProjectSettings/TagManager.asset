@@ -8,6 +8,7 @@ TagManager:
   - Mesh
   - Slicer
   - SliceExpand
+  - Collider
   layers:
   - Default
   - TransparentFX

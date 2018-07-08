@@ -12,10 +12,10 @@ public class ShliceMaster : MonoBehaviour
     [SerializeField]
     private float sliceExpandSpeed, expandSuccessThreshold;
 
-    private float width = 5, height = 5, depth = 5;
+    private float width = 15, height = 5, depth = 5;
     private Mesh mesh, expandingMesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent, side1, side2, expandingShliceObj, standbySlice;
+    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
@@ -26,6 +26,8 @@ public class ShliceMaster : MonoBehaviour
                        allIntersections = new List<Vert>(),
                        shliceVerts = new List<Vert>();
     private Vector3 centerOfAllIntersections = new Vector3();
+    private List<GameObject> colliders = new List<GameObject>();
+
 
     #endregion
 
@@ -37,7 +39,7 @@ public class ShliceMaster : MonoBehaviour
         sliceObj = GameObject.Find("Slicer");
         side1 = GameObject.Find("Side1");
         side2 = GameObject.Find("Side2");
-
+        colliderParent = GameObject.Find("Colliders");
         CreateBaseBox();
 
         foreach (GameObject go in GameObject.FindGameObjectsWithTag("Mesh"))
@@ -46,6 +48,7 @@ public class ShliceMaster : MonoBehaviour
 
     void CreateBaseBox()
     {
+
         expandingMesh = new Mesh();
         mesh = new Mesh();
         meshFitler = meshObj.GetComponent<MeshFilter>();
@@ -53,6 +56,8 @@ public class ShliceMaster : MonoBehaviour
         mesh.Clear();
 
         List<Vector3> baseVertices = new List<Vector3>();
+        List<Vert> _baseVertices = new List<Vert>();
+
         baseVertices.Add(new Vector3(0, 0, 0));
         baseVertices.Add(new Vector3(width, 0, 0));
         baseVertices.Add(new Vector3(0, 0, depth));
@@ -61,9 +66,15 @@ public class ShliceMaster : MonoBehaviour
         baseVertices.Add(new Vector3(width, height, 0));
         baseVertices.Add(new Vector3(0, height, depth));
         baseVertices.Add(new Vector3(width, height, depth));
+
+        for (int i = 0; i < baseVertices.Count; i++)
+            _baseVertices.Add(new Vert() { index = i, pos = baseVertices[0] });
+
         mesh.vertices = baseVertices.ToArray();
 
         List<int> baseTriangles = new List<int>();
+        List<Triangle> _baseTriangles = new List<Triangle>();
+
         //bottom
         baseTriangles.Add(1);
         baseTriangles.Add(3);
@@ -71,6 +82,8 @@ public class ShliceMaster : MonoBehaviour
         baseTriangles.Add(3);
         baseTriangles.Add(2);
         baseTriangles.Add(0);
+
+
         //top
         baseTriangles.Add(4);
         baseTriangles.Add(6);
@@ -106,48 +119,81 @@ public class ShliceMaster : MonoBehaviour
         baseTriangles.Add(3);
         baseTriangles.Add(7);
         baseTriangles.Add(6);
+
+        for (int i = 0; i < baseTriangles.Count; i += 3)
+        {
+            _baseTriangles.Add(new Triangle()
+            {
+                verts = new List<Vert>()
+                {
+                       new Vert() { index = baseTriangles[i], pos = baseVertices[baseTriangles[i]] },
+                       new Vert() { index = baseTriangles[i+1], pos = baseVertices[baseTriangles[i+1]] },
+                       new Vert() { index = baseTriangles[i+2], pos = baseVertices[baseTriangles[i+2]] }
+                }
+            });
+        }
+
         mesh.triangles = baseTriangles.ToArray();
 
         MeshUtility.Optimize(mesh);
         mesh.RecalculateNormals();
-        meshObj.GetComponent<MeshCollider>().sharedMesh = mesh;
-        meshObj.GetComponent<MeshCollider>().convex = true;
+
+        foreach (GameObject go in colliders)
+            DestroyImmediate(go);
+
+        colliders.Clear();
+        for (int i = 0; i < _baseTriangles.Count; i++)
+        {
+            GameObject newcollider = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            newcollider.transform.position = _baseTriangles[i].GetCenter();
+            newcollider.transform.rotation = Quaternion.LookRotation(_baseTriangles[i].GetNormal());
+            newcollider.transform.localScale = new Vector3(10f, 10f, .1f);
+            newcollider.transform.parent = colliderParent.transform;
+            newcollider.name = "Collider " + i;
+            newcollider.tag = "Collider";
+            newcollider.GetComponent<MeshRenderer>().enabled = false;
+            newcollider.GetComponent<BoxCollider>().isTrigger = true;
+            newcollider.AddComponent<Rigidbody>();
+            newcollider.GetComponent<Rigidbody>().isKinematic = true;
+            newcollider.GetComponent<Rigidbody>().useGravity = false;
+            colliders.Add(newcollider);
+        }
     }
 
     void Update()
     {
         #region DebugLines
-        ////// DRAW DEBUG LINES FROM MESH 
-        //foreach (Mesh mesh in meshes)
-        //{
-        //    for (int i = 0; i < mesh.triangles.Count(); i += 3)
-        //    {
-        //        Vector3 center = Vector3.zero;
-        //        foreach (Vert intersection in allIntersections)
-        //            center += intersection.pos;
-        //        center /= (float)allIntersections.Count;
-
-        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), Color.white);
-        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), Color.white);
-        //        Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), Color.white);
-
-        //    }
-        //}
-
-        ////// DRAW DEBUG LINES FROM MESH 
-
-        for (int i = 0; i < expandingMesh.triangles.Count(); i += 3)
+        //// DRAW DEBUG LINES FROM MESH 
+        foreach (Mesh mesh in meshes)
         {
-            Vector3 center = Vector3.zero;
-            foreach (Vert intersection in allIntersections)
-                center += intersection.pos;
-            center /= (float)allIntersections.Count;
+            for (int i = 0; i < mesh.triangles.Count(); i += 3)
+            {
+                Vector3 center = Vector3.zero;
+                foreach (Vert intersection in allIntersections)
+                    center += intersection.pos;
+                center /= (float)allIntersections.Count;
 
-            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), Color.white);
-            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), Color.white);
-            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), Color.white);
+                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), Color.white);
+                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 1]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), Color.white);
+                Debug.DrawLine(transform.TransformPoint(mesh.vertices[mesh.triangles[i + 2]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i]]), Color.white);
 
+            }
         }
+
+        ////// DRAW DEBUG LINES FROM MESH 
+
+        //for (int i = 0; i < expandingMesh.triangles.Count(); i += 3)
+        //{
+        //    Vector3 center = Vector3.zero;
+        //    foreach (Vert intersection in allIntersections)
+        //        center += intersection.pos;
+        //    center /= (float)allIntersections.Count;
+
+        //    Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), Color.white);
+        //    Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), Color.white);
+        //    Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), Color.white);
+
+        //}
 
 
 
@@ -238,14 +284,17 @@ public class ShliceMaster : MonoBehaviour
         //iterate through ever current triangle
         foreach (Triangle oldTri in oldTriangles)
         {
-            RaycastHit _hit;
+            // RaycastHit _hit;
+            RaycastHit[] _hits;
+
             List<Vert> myIntersections = new List<Vert>();
             Vector3 dir = oldTri.pos2 - oldTri.pos1;
             Vert lastIntersection = new Vert(), firstIntersection = new Vert();
             bool hitSide1 = false, hitSide2 = false, hitSide3 = false;
 
             //check for intersections from point1 -> point2
-            if (Physics.Raycast(new Ray(oldTri.pos1, dir), out _hit, Vector3.Distance(oldTri.pos1, oldTri.pos2)))
+            _hits = Physics.RaycastAll(new Ray(oldTri.pos1, dir), Vector3.Distance(oldTri.pos1, oldTri.pos2));
+            foreach (RaycastHit _hit in _hits)
             {
                 if (_hit.transform.tag == "Slicer")
                 {
@@ -256,13 +305,16 @@ public class ShliceMaster : MonoBehaviour
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
                     myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    break;
                 }
-            }
 
-            //check for intersections from point2 -> point3
+            }
             dir = oldTri.pos3 - oldTri.pos2;
-            if (Physics.Raycast(new Ray(oldTri.pos2, dir), out _hit, Vector3.Distance(oldTri.pos3, oldTri.pos2))) // check for intersections in the first edge
+
+            _hits = Physics.RaycastAll(new Ray(oldTri.pos2, dir), Vector3.Distance(oldTri.pos3, oldTri.pos2));
+            foreach (RaycastHit _hit in _hits)
             {
+
                 if (_hit.transform.tag == "Slicer")
                 {
                     hitSide2 = true;
@@ -272,12 +324,15 @@ public class ShliceMaster : MonoBehaviour
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
                     myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    break;
                 }
             }
 
-            //check for intersections from point3 -> point1
             dir = oldTri.pos1 - oldTri.pos3;
-            if (Physics.Raycast(new Ray(oldTri.pos3, dir), out _hit, Vector3.Distance(oldTri.pos3, oldTri.pos1))) // check for intersections in the first edge
+
+            //check for intersections from point3 -> point1
+            _hits = Physics.RaycastAll(new Ray(oldTri.pos3, dir), Vector3.Distance(oldTri.pos3, oldTri.pos1));
+            foreach (RaycastHit _hit in _hits)
             {
                 if (_hit.transform.tag == "Slicer")
                 {
@@ -288,6 +343,7 @@ public class ShliceMaster : MonoBehaviour
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
                     myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    break;
                 }
             }
 
@@ -559,7 +615,29 @@ public class ShliceMaster : MonoBehaviour
         meshes.Clear();
         meshes.Add(meshObj.GetComponent<MeshFilter>().mesh);
         mesh = meshObj.GetComponent<MeshFilter>().mesh;
+
+        foreach (GameObject go in colliders)
+            DestroyImmediate(go);
+
+        colliders.Clear();
+        for (int i = 0; i < newTriangles.Count(); i++)
+        {
+            GameObject newcollider = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            newcollider.transform.position = newTriangles[i].GetCenter();
+            newcollider.transform.rotation = Quaternion.LookRotation(newTriangles[i].GetNormal());
+            newcollider.transform.localScale = new Vector3(10f, 10f, .1f);
+            newcollider.transform.parent = colliderParent.transform;
+            newcollider.name = "Collider " + i;
+            newcollider.tag = "Collider";
+            newcollider.GetComponent<MeshRenderer>().enabled = false;
+            newcollider.GetComponent<BoxCollider>().isTrigger = true;
+            newcollider.AddComponent<Rigidbody>();
+            newcollider.GetComponent<Rigidbody>().isKinematic = true;
+            newcollider.GetComponent<Rigidbody>().useGravity = false;
+            colliders.Add(newcollider);
+        }
     }
+
 
     #region Helpers
 
