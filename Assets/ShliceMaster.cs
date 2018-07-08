@@ -9,21 +9,29 @@ public class ShliceMaster : MonoBehaviour
 {
     #region Variables
 
+    [SerializeField]
+    private float sliceExpandSpeed, expandSuccessThreshold;
+
     private float width = 5, height = 5, depth = 5;
-    private Mesh mesh;
+    private Mesh mesh, expandingMesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent, side1, side2;
+    private GameObject meshObj, sliceObj, meshParent, side1, side2, expandingShliceObj, standbySlice;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
                           oldTriangles = new List<Triangle>(),
-                          newTriangles = new List<Triangle>();
+                          newTriangles = new List<Triangle>(),
+                          shliceTris = new List<Triangle>();
     private List<Vert> newVerts = new List<Vert>(),
-                       allIntersections = new List<Vert>();
+                       allIntersections = new List<Vert>(),
+                       shliceVerts = new List<Vert>();
+    private Vector3 centerOfAllIntersections = new Vector3();
+
     #endregion
 
     void Start()
     {
+
         meshParent = GameObject.Find("Meshes");
         meshObj = GameObject.Find("Mesh");
         sliceObj = GameObject.Find("Slicer");
@@ -38,6 +46,7 @@ public class ShliceMaster : MonoBehaviour
 
     void CreateBaseBox()
     {
+        expandingMesh = new Mesh();
         mesh = new Mesh();
         meshFitler = meshObj.GetComponent<MeshFilter>();
         meshFitler.mesh = mesh;
@@ -125,6 +134,23 @@ public class ShliceMaster : MonoBehaviour
         //    }
         //}
 
+        ////// DRAW DEBUG LINES FROM MESH 
+
+        for (int i = 0; i < expandingMesh.triangles.Count(); i += 3)
+        {
+            Vector3 center = Vector3.zero;
+            foreach (Vert intersection in allIntersections)
+                center += intersection.pos;
+            center /= (float)allIntersections.Count;
+
+            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), Color.white);
+            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 1]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), Color.white);
+            Debug.DrawLine(transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i + 2]]), transform.TransformPoint(expandingMesh.vertices[expandingMesh.triangles[i]]), Color.white);
+
+        }
+
+
+
         ////// DRAW DEBUG LINES FROM NEWTRIANGLES 
         //foreach (Triangle triangle in newTriangles)
         //{
@@ -139,42 +165,45 @@ public class ShliceMaster : MonoBehaviour
         //}
 
 
-        ////// DRAW INTERSECTIONS 
-        //foreach (Vert vert in allIntersections)
-        //{
-        //    float distbox = .2f;
+        //// DRAW INTERSECTIONS 
+        foreach (Vert vert in allIntersections)
+        {
+            float distbox = .2f;
 
-        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
-        //    Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
-        //}
+            Debug.DrawLine(vert.pos + new Vector3(-distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(-distbox, distbox, 0f), vert.pos + new Vector3(distbox, distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(distbox, distbox, 0f), vert.pos + new Vector3(distbox, -distbox, 0f), Color.red);
+            Debug.DrawLine(vert.pos + new Vector3(distbox, -distbox, 0f), vert.pos + new Vector3(-distbox, -distbox, 0f), Color.red);
+        }
         #endregion
 
-        if (Input.GetKey(KeyCode.A))
-            sliceObj.transform.Translate(-.1f, 0f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.D))
-            sliceObj.transform.Translate(.1f, 0f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.W))
-            sliceObj.transform.Translate(0f, 0f, .1f, Space.World);
-        if (Input.GetKey(KeyCode.S))
-            sliceObj.transform.Translate(0f, 0f, -.1f, Space.World);
-        if (Input.GetKey(KeyCode.E))
-            sliceObj.transform.Translate(0f, .1f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.Q))
-            sliceObj.transform.Translate(0f, -.1f, 0f, Space.World);
+        if (sliceObj.activeSelf)
+        {
+            if (Input.GetKey(KeyCode.A))
+                sliceObj.transform.Translate(-.1f, 0f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.D))
+                sliceObj.transform.Translate(.1f, 0f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.W))
+                sliceObj.transform.Translate(0f, 0f, .1f, Space.World);
+            if (Input.GetKey(KeyCode.S))
+                sliceObj.transform.Translate(0f, 0f, -.1f, Space.World);
+            if (Input.GetKey(KeyCode.E))
+                sliceObj.transform.Translate(0f, .1f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.Q))
+                sliceObj.transform.Translate(0f, -.1f, 0f, Space.World);
 
-        if (Input.GetKey(KeyCode.UpArrow))
-            sliceObj.transform.Rotate(-1f, 0f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.DownArrow))
-            sliceObj.transform.Rotate(1f, 0f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.LeftArrow))
-            sliceObj.transform.Rotate(0f, 1f, 0f, Space.World);
-        if (Input.GetKey(KeyCode.RightArrow))
-            sliceObj.transform.Rotate(0f, -1f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.UpArrow))
+                sliceObj.transform.Rotate(-1f, 0f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.DownArrow))
+                sliceObj.transform.Rotate(1f, 0f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.LeftArrow))
+                sliceObj.transform.Rotate(0f, 1f, 0f, Space.World);
+            if (Input.GetKey(KeyCode.RightArrow))
+                sliceObj.transform.Rotate(0f, -1f, 0f, Space.World);
 
-        if (Input.GetKeyDown(KeyCode.Space))
-            Shlice();
+            if (Input.GetKeyDown(KeyCode.Space))
+                Shlice();
+        }
     }
 
     void Shlice()
@@ -309,7 +338,6 @@ public class ShliceMaster : MonoBehaviour
             }
         }
 
-
         ///////////////////////////////////////////////////////////////////////////////
         //// we need to add some new geometry for the part of the cube that was sliced. 
         //// we do this in a "spoke wheel" fashion based on the center of all intersections
@@ -321,6 +349,7 @@ public class ShliceMaster : MonoBehaviour
             foreach (Vert intersection in allIntersections)
                 center += intersection.pos;
             center /= (float)allIntersections.Count;
+            centerOfAllIntersections = center;
             newVerts.Add(new Vert() { index = newVerts.Count, pos = center });
 
             for (int i = 0; i < allIntersections.Count; i += 2)
@@ -376,15 +405,17 @@ public class ShliceMaster : MonoBehaviour
             meshL.RecalculateBounds();
             GameObject go1 = new GameObject();
             go1.name = "Slice 1";
-            go1.tag = "Mesh";
             go1.AddComponent<Rigidbody>();
             go1.GetComponent<Rigidbody>().isKinematic = true;
             go1.GetComponent<Rigidbody>().useGravity = false;
             go1.transform.parent = meshParent.transform;
+
             MeshFilter mf1 = go1.AddComponent<MeshFilter>();
             mf1.mesh = meshL;
             MeshRenderer mr1 = go1.AddComponent<MeshRenderer>();
             mr1.material = mat;
+            go1.SetActive(false);
+            standbySlice = go1;
 
             indices.Clear();
 
@@ -408,15 +439,126 @@ public class ShliceMaster : MonoBehaviour
             //mf2.mesh = meshR;
             //MeshRenderer mr2 = go2.AddComponent<MeshRenderer>();
             //mr2.material = mat;
+            StopCoroutine("ShliceExpand");
+            StartCoroutine("ShliceExpand");
+            //SuccessfulSlice();
 
-
-            meshes.Clear();
-            meshes.Add(meshL);
-            mesh = meshL;
-
-            DestroyImmediate(meshObj);
-            meshObj = GameObject.FindGameObjectWithTag("Mesh");
         }
+    }
+
+    private IEnumerator ShliceExpand()
+    {
+        Vector3 sliceStartingPoint = new Vector3(sliceObj.transform.position.x, sliceObj.transform.position.y, sliceObj.transform.position.z);
+        shliceVerts.Clear();
+        shliceTris.Clear();
+
+        sliceObj.SetActive(false);
+
+        for (int i = 0; i < allIntersections.Count; i++)
+            shliceVerts.Add(new Vert() { index = i, pos = sliceStartingPoint });
+        shliceVerts.Add(new Vert() { index = shliceVerts.Count, pos = sliceStartingPoint });
+
+        for (int j = 0; j < shliceVerts.Count - 1; j++)
+            shliceVerts[j].pos = Vector3.Lerp(shliceVerts[j].pos, allIntersections[j].pos, sliceExpandSpeed * (Time.deltaTime * 50f));
+
+        expandingShliceObj = GameObject.FindGameObjectWithTag("SliceExpand");
+        expandingMesh = expandingShliceObj.GetComponent<MeshFilter>().mesh;
+
+        List<Vector3> _shliceVerts = new List<Vector3>();
+        List<int> _shliceTris = new List<int>();
+
+        for (int i = 0; i < shliceVerts.Count - 1; i += 2)
+        {
+
+            Triangle tri = new Triangle()
+            {
+                verts = new List<Vert>() { shliceVerts[i],
+                                          new Vert() {index = shliceVerts.Count-1, pos = sliceStartingPoint },
+                                          shliceVerts[i+1] },
+                isNewSliceGeometry = true
+            };
+            tri.MatchDirection(-1f * tri.GetNormal());
+            shliceTris.Add(tri);
+
+            tri = new Triangle()
+            {
+                verts = new List<Vert>() { shliceVerts[i],
+                                          new Vert() {index = shliceVerts.Count-1, pos = sliceStartingPoint },
+                                          shliceVerts[i+1] },
+                isNewSliceGeometry = true
+            };
+            tri.MatchDirection(tri.GetNormal());
+            shliceTris.Add(tri);
+        }
+
+
+
+        _shliceVerts.Clear();
+        _shliceTris.Clear();
+        for (int i = 0; i < shliceVerts.Count; i++)
+            _shliceVerts.Add(shliceVerts[i].pos);
+
+        foreach (Triangle tri in shliceTris)
+        {
+            _shliceTris.Add(tri.index1);
+            _shliceTris.Add(tri.index2);
+            _shliceTris.Add(tri.index3);
+        }
+        expandingMesh.Clear();
+        expandingMesh.vertices = _shliceVerts.ToArray();
+        expandingMesh.triangles = _shliceTris.ToArray();
+
+        List<int> indexesCompletes = new List<int>();
+
+        while (indexesCompletes.Count < shliceVerts.Count - 1)
+        {
+            for (int j = 0; j < shliceVerts.Count - 1; j++)
+            {
+
+                shliceVerts[j].pos = Vector3.Lerp(shliceVerts[j].pos, allIntersections[j].pos, sliceExpandSpeed * (Time.deltaTime * 50f));
+                if (Vector3.Distance(shliceVerts[j].pos, allIntersections[j].pos) < expandSuccessThreshold)
+                {
+                    if (!indexesCompletes.Contains(j))
+                        indexesCompletes.Add(j);
+
+                    shliceVerts[j].pos = allIntersections[j].pos;
+                }
+
+            }
+
+
+            _shliceVerts.Clear();
+            _shliceTris.Clear();
+            for (int k = 0; k < shliceVerts.Count; k++)
+                _shliceVerts.Add(shliceVerts[k].pos);
+
+            foreach (Triangle tri in shliceTris)
+            {
+                _shliceTris.Add(tri.index1);
+                _shliceTris.Add(tri.index2);
+                _shliceTris.Add(tri.index3);
+            }
+            expandingMesh.Clear();
+            expandingMesh.vertices = _shliceVerts.ToArray();
+            expandingMesh.triangles = _shliceTris.ToArray();
+
+            yield return new WaitForEndOfFrame();
+        }
+
+        SuccessfulSlice();
+    }
+
+    private void SuccessfulSlice()
+    {
+        expandingMesh.Clear();
+        sliceObj.SetActive(true);
+        DestroyImmediate(meshObj);
+        standbySlice.gameObject.tag = "Mesh";
+        standbySlice.SetActive(true);
+        meshObj = GameObject.FindGameObjectWithTag("Mesh");
+        meshes.Clear();
+        meshes.Add(meshObj.GetComponent<MeshFilter>().mesh);
+        mesh = meshObj.GetComponent<MeshFilter>().mesh;
     }
 
     #region Helpers
