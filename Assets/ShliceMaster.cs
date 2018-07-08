@@ -533,7 +533,7 @@ public class ShliceMaster : MonoBehaviour
 
         }
     }
-
+    
     private IEnumerator ShliceExpand()
     {
         Vector3 sliceStartingPoint = new Vector3(sliceObj.transform.position.x, sliceObj.transform.position.y, sliceObj.transform.position.z);

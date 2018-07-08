@@ -20,16 +20,22 @@ public class BallLogic : MonoBehaviour
 
             transform.Translate(direction * Time.deltaTime * 3f);
         }
+        else if (other.tag == "Slicer")
+        {
+
+        }
     }
     void Start()
     {
 
     }
-    void Update()
+
+    void FixedUpdate()
     {
-        transform.Translate(direction * Time.deltaTime * 3f);
+        transform.Translate(direction.normalized * Time.fixedDeltaTime * 3f);
 
     }
+
     void LateUpdate()
     {
         hitcolliderthisframe = false;
