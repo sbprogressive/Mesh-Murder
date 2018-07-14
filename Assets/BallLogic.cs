@@ -5,8 +5,11 @@ using UnityEngine;
 public class BallLogic : MonoBehaviour
 {
 
-    private Vector3 direction = new Vector3(1f, .55f, .5f);
+    public Vector3 direction = new Vector3();
+    public float speed;
     public bool hitcolliderthisframe = false;
+    public ShliceMaster master;
+
     void OnTriggerStay(Collider other)
     {
         if (other.tag == "Collider" && hitcolliderthisframe == false)
@@ -18,21 +21,21 @@ public class BallLogic : MonoBehaviour
             if (direction.x > 1f || direction.y > 1f || direction.z > 1f || direction.x < -1f || direction.y < -1f || direction.z < -1f)
                 direction = direction.normalized;
 
-            transform.Translate(direction * Time.deltaTime * 3f);
+            transform.Translate(direction * Time.deltaTime * speed);
         }
-        else if (other.tag == "Slicer")
+        else if (other.tag == "SliceExpand")
         {
-
+            master.CancelExpand();
         }
     }
     void Start()
     {
-
+        master = GameObject.Find("MeshManager").GetComponent<ShliceMaster>();
     }
 
     void FixedUpdate()
     {
-        transform.Translate(direction.normalized * Time.fixedDeltaTime * 3f);
+        transform.Translate(direction.normalized * Time.fixedDeltaTime * speed);
 
     }
 

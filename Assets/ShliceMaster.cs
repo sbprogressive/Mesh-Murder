@@ -12,29 +12,67 @@ public class ShliceMaster : MonoBehaviour
 
     [SerializeField]
     private float sliceExpandSpeed, expandSuccessThreshold;
+    [SerializeField]
+    private GameObject ballObj;
+    [SerializeField]
+    private int numLives;
 
-    private float width = 5, height = 2.5f, depth = 2.5f;
+    private float width = 5, height = 2.5f, depth = 2.5f,
+                  totalScore = 0;
+
     private Mesh mesh, expandingMesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice, standBySlice2;
+    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice, standBySlice2, standBySlice3;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
                           oldTriangles = new List<Triangle>(),
                           newTriangles = new List<Triangle>(),
-                          shliceTris = new List<Triangle>();
+                          shliceTris = new List<Triangle>(),
+                          allTris = new List<Triangle>();
     private List<Vert> newVerts = new List<Vert>(),
                        allIntersections = new List<Vert>(),
                        shliceVerts = new List<Vert>();
-    private Vector3 centerOfAllIntersections = new Vector3();
-    private List<GameObject> colliders = new List<GameObject>();
 
+    private Vector3 centerOfAllIntersections = new Vector3(), centerOfBox = new Vector3();
+    private List<GameObject> colliders = new List<GameObject>();
+    private List<Level> levels = new List<Level>();
+    private Level currentLevel = new Level(0, 0, 0, 0);
+    public State currentState = State.Menu;
+    private float volumeAtStart = 0f;
+
+    public float SignedVolumeOfTriangle(Vector3 p1, Vector3 p2, Vector3 p3)
+    {
+        float v321 = p3.x * p2.y * p1.z;
+        float v231 = p2.x * p3.y * p1.z;
+        float v312 = p3.x * p1.y * p2.z;
+        float v132 = p1.x * p3.y * p2.z;
+        float v213 = p2.x * p1.y * p3.z;
+        float v123 = p1.x * p2.y * p3.z;
+        return (1.0f / 6.0f) * (-v321 + v231 + v312 - v132 - v213 + v123);
+    }
+
+    public float VolumeOfMesh(Mesh _mesh)
+    {
+        float volume = 0;
+        Vector3[] vertices = _mesh.vertices;
+        int[] triangles = _mesh.triangles;
+
+        for (int i = 0; i < _mesh.triangles.Length; i += 3)
+        {
+            Vector3 p1 = vertices[triangles[i + 0]];
+            Vector3 p2 = vertices[triangles[i + 1]];
+            Vector3 p3 = vertices[triangles[i + 2]];
+            volume += SignedVolumeOfTriangle(p1, p2, p3);
+        }
+        return Mathf.Abs(volume);
+    }
 
     #endregion
 
     void Start()
     {
-
+        expandingShliceObj = GameObject.FindGameObjectWithTag("SliceExpand");
         meshParent = GameObject.Find("Meshes");
         meshObj = GameObject.Find("Mesh");
         sliceObj = GameObject.Find("Slicer");
@@ -43,8 +81,37 @@ public class ShliceMaster : MonoBehaviour
         colliderParent = GameObject.Find("Colliders");
         CreateBaseBox();
 
+        volumeAtStart = VolumeOfMesh(mesh);
         foreach (GameObject go in GameObject.FindGameObjectsWithTag("Mesh"))
             meshes.Add(go.GetComponent<MeshFilter>().mesh);
+
+        for (int i = 0; i < 20; i++)
+        {
+            GameObject _parent = new GameObject();
+            _parent.name = "Level " + (i + 1).ToString();
+
+            levels.Add(new Level(_percentClearToAdvance: Mathf.Lerp(50f, 90f, (float)i / 20f),
+                                 _ballSpeed: Mathf.Lerp(2f, 8f, (float)i / 20f),
+                                 _numBalls: (int)Mathf.Ceil((float)(i + 1) / 5f),
+                                 _levelNumber: i));
+
+            for (int j = 0; j < levels[i].numBalls; j++)
+            {
+                GameObject go = GameObject.Instantiate(ballObj);
+                go.name = "Ball (Level " + (i + 1).ToString() + ")";
+                go.transform.position = meshObj.transform.position;
+                BallLogic newBallLogic = go.GetComponent<BallLogic>();
+                newBallLogic.speed = levels[i].ballSpeed;
+                while (Mathf.Abs(newBallLogic.direction.x) < .5f && Mathf.Abs(newBallLogic.direction.y) < .5f && Mathf.Abs(newBallLogic.direction.z) < .5f)
+                    newBallLogic.direction = new Vector3(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f));
+                go.transform.parent = _parent.transform;
+                go.SetActive(false);
+                levels[i].balls.Add(go);
+                levels[i].parent = _parent;
+            }
+        }
+
+        currentLevel = levels[0];
     }
 
     void CreateBaseBox()
@@ -83,8 +150,6 @@ public class ShliceMaster : MonoBehaviour
         baseTriangles.Add(3);
         baseTriangles.Add(2);
         baseTriangles.Add(0);
-
-
         //top
         baseTriangles.Add(4);
         baseTriangles.Add(6);
@@ -120,19 +185,65 @@ public class ShliceMaster : MonoBehaviour
         baseTriangles.Add(3);
         baseTriangles.Add(7);
         baseTriangles.Add(6);
+        ////bottom
+        //baseTriangles.Add(1);
+        //baseTriangles.Add(0);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(0);
+        //baseTriangles.Add(2);
+        ////top
+        //baseTriangles.Add(4);
+        //baseTriangles.Add(5);
+        //baseTriangles.Add(6);
+        //baseTriangles.Add(6);
+        //baseTriangles.Add(5);
+        //baseTriangles.Add(7);
+        ////side (closest)
+        //baseTriangles.Add(0);
+        //baseTriangles.Add(1);
+        //baseTriangles.Add(4);
+        //baseTriangles.Add(4);
+        //baseTriangles.Add(1);
+        //baseTriangles.Add(5);
+        ////side (left)
+        //baseTriangles.Add(0);
+        //baseTriangles.Add(4);
+        //baseTriangles.Add(2);
+        //baseTriangles.Add(2);
+        //baseTriangles.Add(4);
+        //baseTriangles.Add(6);
+        ////side (right)
+        //baseTriangles.Add(1);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(5);
+        //baseTriangles.Add(5);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(7);
+        ////side(back)
+        //baseTriangles.Add(2);
+        //baseTriangles.Add(6);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(3);
+        //baseTriangles.Add(6);
+        //baseTriangles.Add(7);
 
         for (int i = 0; i < baseTriangles.Count; i += 3)
         {
             _baseTriangles.Add(new Triangle()
             {
                 verts = new List<Vert>()
-                {
-                       new Vert() { index = baseTriangles[i], pos = baseVertices[baseTriangles[i]] },
-                       new Vert() { index = baseTriangles[i+1], pos = baseVertices[baseTriangles[i+1]] },
-                       new Vert() { index = baseTriangles[i+2], pos = baseVertices[baseTriangles[i+2]] }
-                }
+                    {
+                            new Vert() { index = baseTriangles[i], pos = baseVertices[baseTriangles[i]] },
+                            new Vert() { index = baseTriangles[i+1], pos = baseVertices[baseTriangles[i+1]] },
+                            new Vert() { index = baseTriangles[i+2], pos = baseVertices[baseTriangles[i+2]] }
+                    }
+
             });
+            centerOfBox += _baseTriangles[_baseTriangles.Count - 1].GetCenter();
         }
+
+        centerOfBox /= _baseTriangles.Count;
 
         mesh.triangles = baseTriangles.ToArray();
 
@@ -210,7 +321,15 @@ public class ShliceMaster : MonoBehaviour
         //    Debug.DrawLine(newVerts[triangle.index2].pos, newVerts[triangle.index3].pos, Color.red);
         //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.red);
         //}
+        //// DRAW DEBUG LINES FROM NEWTRIANGLES 
+        for (int i = 0; i < mesh.triangles.Count(); i += 3)
+        {
 
+            Color newcolor = new Color(1f, 1f, 1f, .1f);
+            Debug.DrawLine(mesh.vertices[mesh.triangles[i]], mesh.vertices[mesh.triangles[i + 1]], newcolor);
+            Debug.DrawLine(mesh.vertices[mesh.triangles[i + 1]], mesh.vertices[mesh.triangles[i + 2]], newcolor);
+            Debug.DrawLine(mesh.vertices[mesh.triangles[i + 2]], mesh.vertices[mesh.triangles[i]], newcolor);
+        }
         ////// DRAW DEBUG LINES FROM NEWTRIANGLES 
         //foreach (Triangle triangle in triangles_left)
         //{
@@ -229,7 +348,15 @@ public class ShliceMaster : MonoBehaviour
         //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.red);
         //}
 
+        //foreach (Vector3 vert in mesh.vertices)
+        //{
+        //    float distbox = .03f;
 
+        //    Debug.DrawLine(vert + new Vector3(-distbox, -distbox, 0f), vert + new Vector3(-distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert + new Vector3(-distbox, distbox, 0f), vert + new Vector3(distbox, distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert + new Vector3(distbox, distbox, 0f), vert + new Vector3(distbox, -distbox, 0f), Color.red);
+        //    Debug.DrawLine(vert + new Vector3(distbox, -distbox, 0f), vert + new Vector3(-distbox, -distbox, 0f), Color.red);
+        //}
         //foreach (Triangle triangle in newTriangles)
         //{
         //    float distbox = .2f;
@@ -250,38 +377,72 @@ public class ShliceMaster : MonoBehaviour
         //}
         #endregion
 
-        if (sliceObj.activeSelf)
+        if (currentState == State.Menu)
         {
-            if (Input.GetKey(KeyCode.A))
-                sliceObj.transform.Translate(-.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.D))
-                sliceObj.transform.Translate(.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.W))
-                sliceObj.transform.Translate(0f, 0f, .1f * Time.deltaTime * 25f, Space.World);
-            if (Input.GetKey(KeyCode.S))
-                sliceObj.transform.Translate(0f, 0f, -.1f * Time.deltaTime * 25f, Space.World);
-            if (Input.GetKey(KeyCode.E))
-                sliceObj.transform.Translate(0f, .1f * Time.deltaTime * 25f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.Q))
-                sliceObj.transform.Translate(0f, -.1f * Time.deltaTime * 25f, 0f, Space.World);
-
-            if (Input.GetKey(KeyCode.UpArrow))
-                sliceObj.transform.Rotate(-1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.DownArrow))
-                sliceObj.transform.Rotate(1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.LeftArrow))
-                sliceObj.transform.Rotate(0f, 1f * Time.deltaTime * 200f, 0f, Space.World);
-            if (Input.GetKey(KeyCode.RightArrow))
-                sliceObj.transform.Rotate(0f, -1f * Time.deltaTime * 200f, 0f, Space.World);
-
-            if (Input.GetKeyDown(KeyCode.Space))
-                Shlice();
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
+                InitializeGame();
+        }
+        else if (currentState == State.Results)
+        {
+            if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Return))
                 SceneManager.LoadScene(0);
+        }
+        else if (currentState == State.Playing)
+        {
+            foreach (GameObject go in currentLevel.balls)
+            {
+                if (Vector3.Distance(go.transform.position, centerOfBox) > 7f)
+                    go.transform.position = centerOfBox;
+            }
+
+            if (GameObject.Find("SlicerCube").GetComponent<MeshRenderer>().enabled)
+            {
+                if (Input.GetKey(KeyCode.A))
+                    sliceObj.transform.Translate(-.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.D))
+                    sliceObj.transform.Translate(.1f * Time.deltaTime * 25f, 0f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.W))
+                    sliceObj.transform.Translate(0f, 0f, .1f * Time.deltaTime * 25f, Space.World);
+                if (Input.GetKey(KeyCode.S))
+                    sliceObj.transform.Translate(0f, 0f, -.1f * Time.deltaTime * 25f, Space.World);
+                if (Input.GetKey(KeyCode.E))
+                    sliceObj.transform.Translate(0f, .1f * Time.deltaTime * 25f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.Q))
+                    sliceObj.transform.Translate(0f, -.1f * Time.deltaTime * 25f, 0f, Space.World);
+
+                if (Input.GetKey(KeyCode.UpArrow))
+                    sliceObj.transform.Rotate(-1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.DownArrow))
+                    sliceObj.transform.Rotate(1f * Time.deltaTime * 200f, 0f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.LeftArrow))
+                    sliceObj.transform.Rotate(0f, 1f * Time.deltaTime * 200f, 0f, Space.World);
+                if (Input.GetKey(KeyCode.RightArrow))
+                    sliceObj.transform.Rotate(0f, -1f * Time.deltaTime * 200f, 0f, Space.World);
+
+                if (Input.GetKeyDown(KeyCode.Space))
+                    Shlice();
+                if (Input.GetKeyDown(KeyCode.Escape))
+                    SceneManager.LoadScene(0);
+            }
         }
     }
 
-    void Shlice()
+    public void InitializeGame()
+    {
+        totalScore = 0f;
+        currentLevel = levels[0];
+        foreach (Level level in levels)
+            foreach (GameObject go in level.balls)
+            {
+                go.SetActive(level == currentLevel);
+                go.transform.position = centerOfBox;
+            }
+
+        currentState = State.Playing;
+
+    }
+
+    private void Shlice()
     {
         oldTriangles.Clear();
         newTriangles.Clear();
@@ -329,11 +490,11 @@ public class ShliceMaster : MonoBehaviour
                 {
                     hitSide1 = true;
 
-                    Vector3 intersection = oldTri.pos1 + _hit.distance * dir.normalized;
-                    if (!newVerts.Exists(v => v.pos == intersection))
+                    Vector3 intersection = _hit.point;
+                    if (!newVerts.Exists(v => Vector3.Distance(v.pos, intersection) < .001f))
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => Vector3.Distance(v.pos, intersection) < .001f));
                     break;
                 }
 
@@ -348,11 +509,11 @@ public class ShliceMaster : MonoBehaviour
                 {
                     hitSide2 = true;
 
-                    Vector3 intersection = oldTri.pos2 + _hit.distance * dir.normalized;
-                    if (!newVerts.Exists(v => v.pos == intersection))
+                    Vector3 intersection = _hit.point;
+                    if (!newVerts.Exists(v => Vector3.Distance(v.pos, intersection) < .001f))
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => Vector3.Distance(v.pos, intersection) < .001f));
                     break;
                 }
             }
@@ -367,11 +528,11 @@ public class ShliceMaster : MonoBehaviour
                 {
                     hitSide3 = true;
 
-                    Vector3 intersection = oldTri.pos3 + _hit.distance * dir.normalized;
-                    if (!newVerts.Exists(v => v.pos == intersection))
+                    Vector3 intersection = _hit.point;
+                    if (!newVerts.Exists(v => Vector3.Distance(v.pos, intersection) < .001f))
                         newVerts.Add(new Vert() { index = newVerts.Count, pos = intersection });
 
-                    myIntersections.Add(newVerts.Find(v => v.pos == intersection));
+                    myIntersections.Add(newVerts.Find(v => Vector3.Distance(v.pos, intersection) < .001f));
                     break;
                 }
             }
@@ -466,7 +627,8 @@ public class ShliceMaster : MonoBehaviour
             List<int> indices = new List<int>();
             List<Vector3> newVertPositions = new List<Vector3>();
             Mesh meshL = new Mesh(),
-                 meshR = new Mesh();
+                 meshR = new Mesh(),
+                 meshFull = new Mesh();
 
             for (int i = 0; i < newVerts.Count; i++)
                 newVertPositions.Add(newVerts[i].pos);
@@ -527,21 +689,52 @@ public class ShliceMaster : MonoBehaviour
             standBySlice2 = go2;
 
 
+            indices.Clear();
+
+            //RIGHT SIDE
+            allTris = triangles_left;
+            allTris.AddRange(triangles_right);
+
+            foreach (Triangle triangle in allTris)
+                for (int i = 0; i < triangle.verts.Count; i++)
+                    indices.Add(triangle.verts[i].index);
+            meshFull.vertices = newVertPositions.ToArray();
+            meshFull.triangles = indices.ToArray();
+            MeshUtility.Optimize(meshFull);
+            meshFull.RecalculateNormals();
+            meshFull.RecalculateBounds();
+            GameObject go3 = new GameObject();
+            go3.name = "Slice 3";
+            go3.tag = "Mesh";
+            go3.AddComponent<Rigidbody>();
+            go3.GetComponent<Rigidbody>().isKinematic = true;
+            go3.GetComponent<Rigidbody>().useGravity = false;
+            go3.transform.parent = meshParent.transform;
+            MeshFilter mf3 = go3.AddComponent<MeshFilter>();
+            mf3.mesh = meshFull;
+            MeshRenderer mr3 = go3.AddComponent<MeshRenderer>();
+            mr3.material = mat;
+            go3.SetActive(false);
+            standBySlice3 = go3;
+
+
             StopCoroutine("ShliceExpand");
             StartCoroutine("ShliceExpand");
             //SuccessfulSlice();
 
         }
     }
-    
+
+    private bool isExpanding = false;
+
     private IEnumerator ShliceExpand()
     {
+        isExpanding = true;
         Vector3 sliceStartingPoint = new Vector3(sliceObj.transform.position.x, sliceObj.transform.position.y, sliceObj.transform.position.z);
         shliceVerts.Clear();
         shliceTris.Clear();
 
-        sliceObj.SetActive(false);
-
+        slicerCubeShow(false);
         for (int i = 0; i < allIntersections.Count; i++)
             shliceVerts.Add(new Vert() { index = i, pos = sliceStartingPoint });
         shliceVerts.Add(new Vert() { index = shliceVerts.Count, pos = sliceStartingPoint });
@@ -549,8 +742,10 @@ public class ShliceMaster : MonoBehaviour
         for (int j = 0; j < shliceVerts.Count - 1; j++)
             shliceVerts[j].pos = Vector3.Lerp(shliceVerts[j].pos, allIntersections[j].pos, sliceExpandSpeed * (Time.deltaTime * 50f));
 
-        expandingShliceObj = GameObject.FindGameObjectWithTag("SliceExpand");
+        expandingShliceObj.SetActive(true);
+
         expandingMesh = expandingShliceObj.GetComponent<MeshFilter>().mesh;
+        expandingShliceObj.GetComponent<MeshCollider>().sharedMesh = expandingShliceObj.GetComponent<MeshFilter>().mesh;
 
         List<Vector3> _shliceVerts = new List<Vector3>();
         List<int> _shliceTris = new List<int>();
@@ -629,50 +824,115 @@ public class ShliceMaster : MonoBehaviour
             expandingMesh.vertices = _shliceVerts.ToArray();
             expandingMesh.triangles = _shliceTris.ToArray();
 
+            expandingShliceObj.GetComponent<MeshCollider>().skinWidth = UnityEngine.Random.Range(.01f, .011f);
+
             yield return new WaitForEndOfFrame();
         }
 
-        SuccessfulSlice();
+        if (isExpanding)
+            SuccessfulSlice();
+
+
+        isExpanding = false;
+    }
+
+
+    public void CancelExpand()
+    {
+        if (isExpanding)
+        {
+            numLives--;
+            isExpanding = false;
+            StopCoroutine("ShliceExpand");
+
+            if (numLives <= 0)
+            {
+                currentState = State.Results;
+                foreach (Level level in levels)
+                    foreach (GameObject go in level.balls)
+                        go.GetComponent<BallLogic>().enabled = false;
+
+            }
+            else
+            {
+                slicerCubeShow(true);
+                expandingShliceObj.SetActive(false);
+            }
+        }
+    }
+
+    private void slicerCubeShow(bool _enabled)
+    {
+        foreach (GameObject go in GameObject.FindGameObjectsWithTag("SlicerCube"))
+            go.GetComponent<MeshRenderer>().enabled = _enabled;
     }
 
     private void SuccessfulSlice()
     {
 
         expandingMesh.Clear();
-
-        sliceObj.SetActive(true);
-
-        DestroyImmediate(meshObj);
+        expandingShliceObj.SetActive(false);
+        slicerCubeShow(true);
         List<Triangle> trianglesToUse = new List<Triangle>();
+        bool allBallsOnSameSide = true;
 
-        if (getSide(GameObject.Find("Ball").transform.position) == 0)
+        int currentSide = getSide(currentLevel.balls[0].transform.position);
+
+        for (int i = 1; i < currentLevel.balls.Count; i++)
         {
-            standbySlice.gameObject.tag = "Mesh";
-            standbySlice.SetActive(true);
-            GameObject.Destroy(standBySlice2);
-            trianglesToUse = triangles_left;
+            if (getSide(currentLevel.balls[i].transform.position) != currentSide)
+                allBallsOnSameSide = false;
+        }
+        DestroyImmediate(meshObj);
+
+
+        if (allBallsOnSameSide)
+        {
+
+
+            if (currentSide == 0)
+            {
+                standbySlice.gameObject.tag = "Mesh";
+                standbySlice.SetActive(true);
+                GameObject.Destroy(standBySlice2);
+                GameObject.Destroy(standBySlice3);
+
+                trianglesToUse = triangles_left;
+            }
+            else
+            {
+                standBySlice2.gameObject.tag = "Mesh";
+                standBySlice2.SetActive(true);
+                GameObject.Destroy(standbySlice);
+                GameObject.Destroy(standBySlice3);
+
+                trianglesToUse = triangles_right;
+            }
         }
         else
         {
-            standBySlice2.gameObject.tag = "Mesh";
-            standBySlice2.SetActive(true);
+            standBySlice3.gameObject.tag = "Mesh";
+            standBySlice3.SetActive(true);
             GameObject.Destroy(standbySlice);
-            trianglesToUse = triangles_right;
+            GameObject.Destroy(standBySlice2);
+            trianglesToUse = allTris;
         }
-
 
         meshObj = GameObject.FindGameObjectWithTag("Mesh");
         meshes.Clear();
         meshes.Add(meshObj.GetComponent<MeshFilter>().mesh);
         mesh = meshObj.GetComponent<MeshFilter>().mesh;
 
+
         foreach (GameObject go in colliders)
             DestroyImmediate(go);
         colliders.Clear();
 
+        centerOfBox = new Vector3(0f, 0f, 0f);
 
         for (int i = 0; i < trianglesToUse.Count(); i++)
         {
+            centerOfBox += trianglesToUse[i].GetCenter();
             GameObject newcollider = GameObject.CreatePrimitive(PrimitiveType.Cube);
             newcollider.transform.position = trianglesToUse[i].GetCenter();
             newcollider.transform.rotation = Quaternion.LookRotation(trianglesToUse[i].GetNormal());
@@ -687,10 +947,71 @@ public class ShliceMaster : MonoBehaviour
             newcollider.GetComponent<Rigidbody>().useGravity = false;
             colliders.Add(newcollider);
         }
+        centerOfBox /= trianglesToUse.Count();
+
+        currentLevel.areaLeft = (VolumeOfMesh(mesh) / volumeAtStart) * 100f;
+        currentLevel.areaLeft = (float)Math.Round(currentLevel.areaLeft, 2);
+
+        if (currentLevel.areaLeft < 100f - currentLevel.percentClearToAdvance)
+        {
+            AdvanceToNextLevel();
+        }
     }
 
+    public void AdvanceToNextLevel()
+    {
+        currentLevel = levels[currentLevel.levelNumber + 1];
+
+        foreach (Level level in levels)
+            foreach (GameObject go in level.balls)
+            {
+                go.SetActive(level == currentLevel);
+                go.transform.position = centerOfBox;
+            }
+
+        CreateBaseBox();
+
+    }
+
+    private void OnGUI()
+    {
+        if (currentState == State.Playing || currentState == State.Results)
+        {
+            Rect center = new Rect(Screen.width / 2f, Screen.height / 2f, 200f, 50f);
+            Rect bottom = new Rect(Screen.width / 2f, Screen.height, 200f, 50f);
+            Rect topbottom = new Rect(Screen.width / 2f, 0f, 200f, 50f);
+            Rect left = new Rect(0f, Screen.height / 2f, 200f, 50f);
+            Rect right = new Rect(Screen.width, Screen.height / 2f, 200f, 50f);
+            GUIStyle style = new GUIStyle();
+            style.fontSize = 30;
+            style.normal.textColor = Color.black;
+
+            Vector2 _level = left.position + new Vector2(10f, -50f);
+            Vector2 _area = left.position + new Vector2(10f, -100f);
+            Vector2 _area2 = left.position + new Vector2(10f, -150f);
+            Vector2 _lives = left.position + new Vector2(10f, -200f);
+
+            GUI.Label(new Rect(_level, center.size), "Level " + (currentLevel.levelNumber + 1), style);
+            GUI.Label(new Rect(_area, center.size), "Volume Left: " + currentLevel.areaLeft + "%", style);
+            GUI.Label(new Rect(_area2, center.size), "Next Level at: " + (100f - currentLevel.percentClearToAdvance) + "%", style);
+            GUI.Label(new Rect(_lives, center.size), "Lives: " + numLives, style);
+
+            _level += new Vector2(-2f, -2f);
+            _area += new Vector2(-2f, -2f);
+            _area2 += new Vector2(-2f, -2f);
+            _lives += new Vector2(-2f, -2f);
+
+            style.normal.textColor = Color.white;
+            GUI.Label(new Rect(_level, center.size), "Level " + (currentLevel.levelNumber + 1), style);
+            GUI.Label(new Rect(_area, center.size), "Volume Left: " + currentLevel.areaLeft + "%", style);
+            GUI.Label(new Rect(_area2, center.size), "Next Level at: " + (100f - currentLevel.percentClearToAdvance) + "%", style);
+            GUI.Label(new Rect(_lives, center.size), "Lives: " + numLives, style);
+        }
+    }
 
     #region Helpers
+
+
 
     private int getSide(Vector3 point) //returns which side of the slicer this point is on
     {
@@ -720,6 +1041,13 @@ public class ShliceMaster : MonoBehaviour
 
     #endregion
 
+}
+
+public enum State
+{
+    Menu = 1,
+    Playing = 2,
+    Results = 3
 }
 
 public class Triangle
@@ -770,4 +1098,24 @@ public class Vert
 {
     public Vector3 pos { get; set; }
     public int index { get; set; }
+}
+
+public class Level
+{
+    public float percentClearToAdvance { get; set; }
+    public float ballSpeed { get; set; }
+    public int numBalls { get; set; }
+    public int levelNumber { get; set; }
+    public List<GameObject> balls { get; set; }
+    public GameObject parent { get; set; }
+    public float areaLeft { get; set; }
+    public Level(float _percentClearToAdvance, float _ballSpeed, int _numBalls, int _levelNumber)
+    {
+        percentClearToAdvance = _percentClearToAdvance;
+        ballSpeed = _ballSpeed;
+        numBalls = _numBalls;
+        levelNumber = _levelNumber;
+        balls = new List<GameObject>();
+        areaLeft = 100f;
+    }
 }

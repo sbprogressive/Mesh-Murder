@@ -9,6 +9,7 @@ TagManager:
   - Slicer
   - SliceExpand
   - Collider
+  - SlicerCube
   layers:
   - Default
   - TransparentFX
