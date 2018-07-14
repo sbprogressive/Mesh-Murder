@@ -231,8 +231,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\BallLogic.cs" />
-    <Compile Include="Assets\ShliceMaster.cs" />
+    <Compile Include="Assets\Packages\Island\Scripts\FixedTiling.cs" />
+    <Compile Include="Assets\Packages\Island\Scripts\WaterScroller.cs" />
+    <Compile Include="Assets\Scripts\BallLogic.cs" />
+    <Compile Include="Assets\Scripts\ShliceMaster.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />
