@@ -10,6 +10,7 @@ TagManager:
   - SliceExpand
   - Collider
   - SlicerCube
+  - ReverseMesh
   layers:
   - Default
   - TransparentFX

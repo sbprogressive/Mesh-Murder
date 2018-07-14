@@ -20,9 +20,9 @@ public class ShliceMaster : MonoBehaviour
     private float width = 5, height = 2.5f, depth = 2.5f,
                   totalScore = 0;
 
-    private Mesh mesh, expandingMesh;
+    private Mesh mesh, expandingMesh, reverseMesh;
     private MeshFilter meshFitler = new MeshFilter();
-    private GameObject meshObj, sliceObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice, standBySlice2, standBySlice3;
+    private GameObject meshObj, sliceObj, reverseMeshObj, meshParent, colliderParent, side1, side2, expandingShliceObj, standbySlice, standBySlice2, standBySlice3;
     private List<Mesh> meshes = new List<Mesh>();
     private List<Triangle> triangles_left = new List<Triangle>(),
                           triangles_right = new List<Triangle>(),
@@ -79,6 +79,8 @@ public class ShliceMaster : MonoBehaviour
         side1 = GameObject.Find("Side1");
         side2 = GameObject.Find("Side2");
         colliderParent = GameObject.Find("Colliders");
+        reverseMeshObj = GameObject.FindGameObjectWithTag("ReverseMesh");
+
         CreateBaseBox();
 
         volumeAtStart = VolumeOfMesh(mesh);
@@ -270,6 +272,41 @@ public class ShliceMaster : MonoBehaviour
             newcollider.GetComponent<Rigidbody>().useGravity = false;
             colliders.Add(newcollider);
         }
+
+        FillReverseMesh();
+    }
+
+    public void FillReverseMesh()
+    {
+        return;
+
+        reverseMesh = new Mesh();
+        reverseMeshObj.GetComponent<MeshFilter>().mesh = reverseMesh;
+        reverseMesh.Clear();
+        reverseMesh.vertices = mesh.vertices;
+
+        List<int> reverseTris = new List<int>();
+        List<Triangle> _reverseTris = new List<Triangle>();
+        for (int i = 0; i < mesh.triangles.Count(); i += 3)
+        {
+            Triangle newTri = new Triangle()
+            {
+                verts = new List<Vert>(){new Vert() {index=mesh.triangles[i+2], pos= mesh.vertices[mesh.triangles[i+2]] },
+                                         new Vert() {index=mesh.triangles[i+1], pos= mesh.vertices[mesh.triangles[i+1]] },
+                                         new Vert() {index=mesh.triangles[i], pos= mesh.vertices[mesh.triangles[i]] }}
+            };
+            _reverseTris.Add(newTri);
+        }
+
+        for (int i = 0; i < _reverseTris.Count; i++)
+        {
+            reverseTris.Add(_reverseTris[i].index1);
+            reverseTris.Add(_reverseTris[i].index2);
+            reverseTris.Add(_reverseTris[i].index3);
+        }
+        reverseMesh.triangles = reverseTris.ToArray();
+        MeshUtility.Optimize(reverseMesh);
+        reverseMesh.RecalculateNormals();
     }
 
     void Update()
@@ -321,15 +358,26 @@ public class ShliceMaster : MonoBehaviour
         //    Debug.DrawLine(newVerts[triangle.index2].pos, newVerts[triangle.index3].pos, Color.red);
         //    Debug.DrawLine(newVerts[triangle.index3].pos, newVerts[triangle.index1].pos, Color.red);
         //}
+
         //// DRAW DEBUG LINES FROM NEWTRIANGLES 
         for (int i = 0; i < mesh.triangles.Count(); i += 3)
         {
 
-            Color newcolor = new Color(1f, 1f, 1f, .1f);
+            Color newcolor = new Color(1f, 1f, 1f, .2f);
             Debug.DrawLine(mesh.vertices[mesh.triangles[i]], mesh.vertices[mesh.triangles[i + 1]], newcolor);
             Debug.DrawLine(mesh.vertices[mesh.triangles[i + 1]], mesh.vertices[mesh.triangles[i + 2]], newcolor);
             Debug.DrawLine(mesh.vertices[mesh.triangles[i + 2]], mesh.vertices[mesh.triangles[i]], newcolor);
         }
+        
+        //for (int i = 0; i < reverseMesh.triangles.Count(); i += 3)
+        //{
+
+        //    Color newcolor = new Color(1f, 1f, 0f, 1f);
+        //    Debug.DrawLine(mesh.vertices[reverseMesh.triangles[i]], mesh.vertices[reverseMesh.triangles[i + 1]], newcolor);
+        //    Debug.DrawLine(mesh.vertices[reverseMesh.triangles[i + 1]], mesh.vertices[reverseMesh.triangles[i + 2]], newcolor);
+        //    Debug.DrawLine(mesh.vertices[reverseMesh.triangles[i + 2]], mesh.vertices[reverseMesh.triangles[i]], newcolor);
+        //}
+        
         ////// DRAW DEBUG LINES FROM NEWTRIANGLES 
         //foreach (Triangle triangle in triangles_left)
         //{
@@ -724,9 +772,7 @@ public class ShliceMaster : MonoBehaviour
 
             StopCoroutine("ShliceExpand");
             StartCoroutine("ShliceExpand");
-            //SuccessfulSlice();
-
-        }
+         }
     }
 
     private bool isExpanding = false;
@@ -960,6 +1006,11 @@ public class ShliceMaster : MonoBehaviour
         {
             AdvanceToNextLevel();
         }
+        else
+        {
+            FillReverseMesh();
+        }
+
     }
 
     public void AdvanceToNextLevel()
